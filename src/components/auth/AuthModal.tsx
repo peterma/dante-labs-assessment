@@ -239,8 +239,10 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                   {(['login', 'signup'] as Mode[]).map(m => (
                     <button
                       key={m}
+                      id={`tab-${m}`}
                       role="tab"
                       aria-selected={mode === m}
+                      aria-controls={`panel-${m}`}
                       onClick={() => switchMode(m)}
                       className={`pb-3 px-1 mr-6 text-sm font-semibold border-b-2 -mb-px transition-colors ${
                         mode === m
@@ -268,7 +270,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                 )}
 
                 {/* LOGIN FORM */}
-                {mode === 'login' && (
+                <div id="panel-login" role="tabpanel" aria-labelledby="tab-login" hidden={mode !== 'login'}>
                   <form
                     onSubmit={loginForm.handleSubmit(onLoginSubmit)}
                     noValidate
@@ -364,10 +366,10 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                       {loading ? 'Signing in…' : 'Sign In'}
                     </button>
                   </form>
-                )}
+                </div>
 
                 {/* SIGNUP FORM */}
-                {mode === 'signup' && (
+                <div id="panel-signup" role="tabpanel" aria-labelledby="tab-signup" hidden={mode !== 'signup'}>
                   <form
                     onSubmit={signupForm.handleSubmit(onSignupSubmit)}
                     noValidate
@@ -520,7 +522,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                       {loading ? 'Creating account…' : 'Create Account'}
                     </button>
                   </form>
-                )}
+                </div>
 
                 {/* Divider */}
                 <div className="flex items-center gap-3 my-5">
