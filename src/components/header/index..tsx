@@ -1,5 +1,5 @@
 import React, { Fragment, useEffect, useState } from 'react';
-import { Dialog, Listbox, Menu, Popover, Tab, Transition } from '@headlessui/react';
+import { Dialog, Listbox, Menu, Popover, Transition } from '@headlessui/react';
 import { CheckIcon, MenuIcon, SelectorIcon, XIcon } from '@heroicons/react/solid';
 import Link from 'next/link';
 import SelectTokenTail from '../selecttokentail';
@@ -125,14 +125,12 @@ const Trident = () => {
                 leaveFrom="transform opacity-100 scale-100"
                 leaveTo="transform opacity-0 scale-95"
               >
-                <Menu.Items className="origin-top-right absolute  mt-1 -mr-10 z-20   border-2 border-gray-800 rounded-md shadow-lg bg-black  focus:outline-none">
-                  <div className="py-1  text-gray-400">
+                <Menu.Items className="origin-top-right absolute mt-1 -mr-10 z-20 border-2 border-gray-800 rounded-md shadow-lg bg-black focus:outline-none">
+                  <div className="py-1 text-gray-400">
                     {item.contents.map(contents => (
                       <Menu.Item key={contents.name}>
-                        <Link href={contents.href}>
-                          {/* <a className=" hover:bg-gray-800 hover:text-white  block px-4 py-2 text-sm" > */}
+                        <Link href={contents.href} className="hover:bg-gray-800 hover:text-white block px-4 py-2 text-sm">
                           {contents.name}
-                          {/* </a> */}
                         </Link>
                       </Menu.Item>
                     ))}
@@ -272,74 +270,74 @@ const Header = () => {
         <Login />
         <Account />
         <Popover className="relative   ">
-          <div className="flex  fixed z-20 inset-x-0 bg-black/80 backdrop-blur     transition duration-700 mb-10   justify-between items-center  p-3  lg:justify-end  px-5 md:px-10  ">
-            <div className=" flex w-full justify-between items-center xl:justify-start">
-              {/*Logo */}
-              <div>
-                <Link href="/home">
-                  <span className="sr-only">Workflow</span>
-                  <img className="w-auto h-14" src="/web3logo.svg" alt="" />
-                </Link>
-              </div>
-              {/* Top bar function */}
-              <Tab.Group as="nav" className="hidden  xl:flex  space-x-10 mt-1.5 pl-10">
+          <div className="flex fixed z-20 inset-x-0 bg-black/80 backdrop-blur transition duration-700 mb-10 items-center justify-between p-3 px-5 md:px-10">
+            {/* Left: Logo + Nav */}
+            <div className="flex items-center">
+              <Link href="/home">
+                <span className="sr-only">Workflow</span>
+                <img className="w-auto h-14" src="/web3logo.svg" alt="" />
+              </Link>
+              <div className="hidden xl:flex items-center mt-1.5 ml-4">
                 <Trident />
-              </Tab.Group>
+              </div>
             </div>
 
-            {/* mobile function list design */}
-            <div className="mr-2  my-0.5 xl:hidden">
-              <Popover.Button className="bg-white  rounded-md p-2 inline-flex items-center justify-center text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500">
-                <span className="sr-only">Open menu</span>
-                <MenuIcon className="h-6 w-6" aria-hidden="true" />
-              </Popover.Button>
-            </div>
+            {/* Right: hamburger (mobile) + wallet (desktop) */}
+            <div className="flex items-center">
+              {/* Mobile hamburger */}
+              <div className="mr-2 my-0.5 xl:hidden">
+                <Popover.Button className="bg-white rounded-md p-2 inline-flex items-center justify-center text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500">
+                  <span className="sr-only">Open menu</span>
+                  <MenuIcon className="h-6 w-6" aria-hidden="true" />
+                </Popover.Button>
+              </div>
 
-            {/* Wallet Button */}
-            <div className="hidden  xl:flex w-full  md:flex-1 ">
-              <div className={WalletButtonShow ? 'hidden' : 'mt-1'}>
-                <div className="p-0.5 rounded-lg bg-gradient-to-r from-[#D95F82]  via-[#8273D7] to-[#729CEA]">
-                  <button
-                    onClick={open_wallet_list}
-                    className="bg-[#151515]  transition duration-700  w-44  py-2 text-white rounded-md  flex justify-center"
-                  >
-                    Connect Wallet
-                  </button>
-                </div>
-              </div>
-              <div className={WalletButtonShow && AccountChoose == 1 ? '' : 'hidden'}>
-                <div className="flex bg-neutral-800 rounded-full p-1 justify-center">
-                  <div className="flex items-center mr-4 p-2">
-                    <img
-                      className="w-6 h-6 rounded-lg mx-1"
-                      src="https://portal.web3games.org/_next/image?url=%2Fnetworks%2Fethereum-network.jpg&w=48&q=75"
-                      alt=""
-                    />
-                    <div className=" text-white w-16">Ethereum</div>
+              {/* Desktop wallet */}
+              <div className="hidden xl:flex items-center">
+                <div className={WalletButtonShow ? 'hidden' : 'mt-1'}>
+                  <div className="p-0.5 rounded-lg bg-gradient-to-r from-[#D95F82] via-[#8273D7] to-[#729CEA]">
+                    <button
+                      onClick={open_wallet_list}
+                      className="bg-[#151515] transition duration-700 w-44 py-2 text-white rounded-md flex justify-center"
+                    >
+                      Connect Wallet
+                    </button>
                   </div>
-                  <button
-                    onClick={accountConfig}
-                    className=" bg-neutral-700 rounded-full truncate  w-40 px-4 py-2 text-white rounded-lg  flex  "
-                  >
-                    {walletAddress}
-                  </button>
                 </div>
-              </div>
-              <div className={WalletButtonShow && AccountChoose == 2 ? '' : 'hidden'}>
-                <div className="flex bg-neutral-800 rounded-full p-1 justify-center">
-                  <div className="flex items-center mr-4 p-2">
-                    <img className="w-6 h-6 rounded-lg mx-1" src="/substrate.svg" alt="" />
-                    <div className=" text-white w-16">Substrate</div>
+                <div className={WalletButtonShow && AccountChoose == 1 ? '' : 'hidden'}>
+                  <div className="flex bg-neutral-800 rounded-full p-1 justify-center">
+                    <div className="flex items-center mr-4 p-2">
+                      <img
+                        className="w-6 h-6 rounded-lg mx-1"
+                        src="https://portal.web3games.org/_next/image?url=%2Fnetworks%2Fethereum-network.jpg&w=48&q=75"
+                        alt=""
+                      />
+                      <div className="text-white w-16">Ethereum</div>
+                    </div>
+                    <button
+                      onClick={accountConfig}
+                      className="bg-neutral-700 rounded-full truncate w-40 px-4 py-2 text-white rounded-lg flex"
+                    >
+                      {walletAddress}
+                    </button>
                   </div>
-                  <button
-                    onClick={accountConfig}
-                    className=" bg-neutral-700 rounded-full truncate  w-40 px-4 py-2 text-white rounded-lg  flex  "
-                  >
-                    {walletAddress}
-                  </button>
                 </div>
+                <div className={WalletButtonShow && AccountChoose == 2 ? '' : 'hidden'}>
+                  <div className="flex bg-neutral-800 rounded-full p-1 justify-center">
+                    <div className="flex items-center mr-4 p-2">
+                      <img className="w-6 h-6 rounded-lg mx-1" src="/substrate.svg" alt="" />
+                      <div className="text-white w-16">Substrate</div>
+                    </div>
+                    <button
+                      onClick={accountConfig}
+                      className="bg-neutral-700 rounded-full truncate w-40 px-4 py-2 text-white rounded-lg flex"
+                    >
+                      {walletAddress}
+                    </button>
+                  </div>
+                </div>
+                <SwitchNetWork />
               </div>
-              <SwitchNetWork />
             </div>
           </div>
           {/* mobile function list */}
