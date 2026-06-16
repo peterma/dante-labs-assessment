@@ -9,25 +9,30 @@ const axios = require('axios');
 
 // Register User
 exports.registerUser = asyncErrorHandler(async (req, res, next) => {
-  const myCloud = await cloudinary.v2.uploader.upload(req.body.avatar, {
-    folder: 'avatars',
-    width: 150,
-    crop: 'scale',
-  });
+  const { name, email, gender, password, avatar } = req.body;
 
-  const { name, email, gender, password } = req.body;
+  let avatarData = {
+    public_id: 'default_avatar',
+    url: 'https://www.gravatar.com/avatar/?d=mp&s=150',
+  };
 
-  const user = await User.create({
-    name,
-    email,
-    gender,
-    password,
-    avatar: {
-      public_id: myCloud.public_id,
-      url: myCloud.secure_url,
-    },
-  });
+  if (avatar && typeof avatar === 'string') {
+    if (/^https?:\/\//.test(avatar)) {
+      avatarData = { public_id: 'url_avatar', url: avatar };
+    } else if (
+      process.env.CLOUDINARY_NAME &&
+      process.env.CLOUDINARY_NAME !== 'placeholder'
+    ) {
+      const myCloud = await cloudinary.v2.uploader.upload(avatar, {
+        folder: 'avatars',
+        width: 150,
+        crop: 'scale',
+      });
+      avatarData = { public_id: myCloud.public_id, url: myCloud.secure_url };
+    }
+  }
 
+  const user = await User.create({ name, email, gender, password, avatar: avatarData });
   sendToken(user, 201, res);
 });
 
@@ -58,6 +63,8 @@ exports.logoutUser = asyncErrorHandler(async (req, res, next) => {
   res.cookie('token', null, {
     expires: new Date(Date.now()),
     httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'Lax',
   });
 
   res.status(200).json({

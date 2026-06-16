@@ -1,15 +1,19 @@
 const express = require('express');
-const { validateBusinessInfo } = require('./middlewares/validator');
+const cors = require('cors');
 const path = require('path');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 
 const app = express();
 
-// config
 if (process.env.NODE_ENV !== 'production') {
   require('dotenv').config({ path: 'server/config/config.env' });
 }
+
+app.use(cors({
+  origin: process.env.CLIENT_ORIGIN || 'http://localhost:3002',
+  credentials: true,
+}));
 
 app.use(express.json());
 app.use(cookieParser());
@@ -25,14 +29,9 @@ app.use('/api/product', product);
 app.use('/api/order', order);
 app.use('/api/payment', payment);
 
-// deployment
-__dirname = path.resolve();
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '/frontend/build')));
-
-  app.get('*', (req, res) => {
-    res.sendFile(path.resolve(__dirname, 'frontend', 'build', 'index.html'));
-  });
+  app.get('/', (req, res) => res.json({ status: 'ok' }));
+  app.use((req, res) => res.status(404).json({ error: 'Not found' }));
 } else {
   app.get('/', (req, res) => {
     res.send('Server is Running! 🚀');

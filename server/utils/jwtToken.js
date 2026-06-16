@@ -1,19 +1,18 @@
-// Create and send token and save in the cookie.
 const sendToken = (user, statusCode, res) => {
-    // Create Jwt token
     const token = user.getJwtToken();
 
-    // Options for cookie
     const options = {
         expires: new Date(
-        Date.now() + process.env.COOKIE_EXPIRES_TIME * 24 * 60 * 60 * 1000
+            Date.now() + process.env.COOKIE_EXPIRE * 24 * 60 * 60 * 1000
         ),
         httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'Lax',
     };
 
-    res.status(statusCode).cookie("token", token, options).json({
+    // Token is sent via HttpOnly cookie only — not in the response body.
+    res.status(statusCode).cookie('token', token, options).json({
         success: true,
-        token,
         user,
     });
 };
