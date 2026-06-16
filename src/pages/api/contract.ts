@@ -165,11 +165,8 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Rate limiting
-  const rawIp =
-    (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim() ??
-    req.socket.remoteAddress ??
-    'unknown';
+  // Rate limiting — use the real TCP peer, not the spoofable X-Forwarded-For header.
+  const rawIp = req.socket.remoteAddress ?? 'unknown';
   if (!checkRateLimit(rawIp)) {
     res.setHeader('Retry-After', '60');
     return res.status(429).json({ error: 'Too many requests. Try again in a minute.' });
