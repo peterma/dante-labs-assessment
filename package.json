@@ -5,7 +5,7 @@
   "author": "dantelabs",
   "license": "GPL3",
   "scripts": {
-    "start": "concurrently \"node server/app.js\" \"next --port 3002\"",
+    "start": "concurrently \"node server/server.js\" \"next --port 3002\"",
     "frontend": "next --port 3002",
     "backend": "node server/app.js",
     "build": "next build",
@@ -60,6 +60,7 @@
   "devDependencies": {
     "@tailwindcss/line-clamp": "^0.4.2",
     "@testing-library/jest-dom": "^6.8.0",
+    "autoprefixer": "^10.5.0",
     "tailwind-scrollbar": "^2.0.1",
     "tailwindcss": "^3.1.8",
     "typescript": "^4.8.4"
