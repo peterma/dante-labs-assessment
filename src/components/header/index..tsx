@@ -1,9 +1,7 @@
-import React, { Fragment, useEffect, useState } from 'react';
-import { Dialog, Listbox, Menu, Popover, Transition } from '@headlessui/react';
-import { CheckIcon, MenuIcon, SelectorIcon, XIcon } from '@heroicons/react/solid';
+import React, { Fragment, useEffect } from 'react';
+import { Menu, Popover, Transition } from '@headlessui/react';
+import { MenuIcon, XIcon } from '@heroicons/react/solid';
 import Link from 'next/link';
-import SelectTokenTail from '../selecttokentail';
-import SelectTokenTop from '../selecttokentop';
 import {
   AccountChooseValue,
   WalletButtonShowState,
@@ -11,36 +9,33 @@ import {
   AccountConfigPageState,
   WalletAddress,
   NetWorkState,
-  Token_Lists,
   IntactWalletAddress,
+  IsEmailAuthenticated,
 } from '../../jotai';
 import { useAtom } from 'jotai';
 import { useRouter } from 'next/router';
 import Login from '../login';
 import Account from '../account';
-import TokenList from '../token_lists';
 import { address_slice } from '../../utils/chain/address';
 
-function classNames(...classes) {
+function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(' ');
 }
 
+const netWorkDefaults = [
+  { id: 1, name: 'Mainnet', online: 'bg-green-400' },
+  { id: 2, name: 'Testnet', online: 'bg-yellow-400' },
+];
+
+const isExternal = (href: string) => /^https?:\/\//.test(href);
+
 const Trident = () => {
   const navigation = [
-    // {
-    //     title: "Wallet",
-    //     contents: [
-    //         { name: 'Assets', href: '/assets', },
-    //         { name: 'Transfer', href: '/transfer',},
-    //         // { name: 'Transaction', href: '/transaction',},
-    //
-    //     ]
-    // },
     {
       title: 'Dex',
       contents: [
         { name: 'Swap', href: '/home' },
-        { name: 'Pools ', href: '/pools' },
+        { name: 'Pools', href: '/pools' },
         { name: 'Create', href: '/create' },
         { name: 'Bridge', href: '/bridge' },
         { name: 'Farms', href: '/farms' },
@@ -54,10 +49,6 @@ const Trident = () => {
         { name: 'Home', href: '/launchpad' },
         { name: 'Next', href: '/nextido' },
         { name: 'History', href: '/historyido' },
-        // { name: 'Bridge', href: '/bridge',},
-        // { name: 'Farms', href: '/farms',},
-        // { name: 'Staking', href: '/staking',},
-        // { name: 'Mint', href: '/defi_mint',}
       ],
     },
     {
@@ -68,7 +59,6 @@ const Trident = () => {
         { name: 'Rankings', href: '/ranking' },
         { name: 'Auction', href: '/auction' },
         { name: 'Drops', href: '/drops' },
-        // { name: 'Mint', href: '/defi_mint', },
       ],
     },
     {
@@ -96,186 +86,105 @@ const Trident = () => {
   ];
 
   const TestNavigation = [{ name: 'Faucet', href: '/faucet' }];
-  const [selected, setSelected] = useAtom(NetWorkState);
-
-  if (selected) {
-    return (
-      <div className="">
-        <div className="xl:flex justify-center grid grid-cols-3 md:grid-cols-5  ">
-          {navigation.map(item => (
-            <Menu as="div" key={item.title} className="relative inline-block text-left font-semibold xl:mr-10">
-              <div>
-                <Menu.Button
-                  className=" py-2.5 text-sm leading-5 w-24 xl:w-full text-center  rounded-lg text-base font-medium text-gray-100
-                                  focus: ring-offset-2 ring-offset-blue-400 ring-white ring-opacity-90 flex justify-center"
-                >
-                  {item.title}{' '}
-                  <div>
-                    <i className="fa fa-angle-down ml-2" aria-hidden="true"></i>
-                  </div>
-                </Menu.Button>
-              </div>
-
-              <Transition
-                as={Fragment}
-                enter="transition ease-out duration-100"
-                enterFrom="transform opacity-0 scale-95"
-                enterTo="transform opacity-100 scale-100"
-                leave="transition ease-in duration-75"
-                leaveFrom="transform opacity-100 scale-100"
-                leaveTo="transform opacity-0 scale-95"
-              >
-                <Menu.Items className="origin-top-right absolute mt-1 -mr-10 z-20 border-2 border-gray-800 rounded-md shadow-lg bg-black focus:outline-none">
-                  <div className="py-1 text-gray-400">
-                    {item.contents.map(contents => (
-                      <Menu.Item key={contents.name}>
-                        <Link href={contents.href} className="hover:bg-gray-800 hover:text-white block px-4 py-2 text-sm">
-                          {contents.name}
-                        </Link>
-                      </Menu.Item>
-                    ))}
-                  </div>
-                </Menu.Items>
-              </Transition>
-            </Menu>
-          ))}
-          <div
-        //    className={selected.id !== 2 ? 'hidden' : ' '}
-           >
-            {TestNavigation.map(item => (
-              <Link key={item.name} href={item.href}>
-                {/* <a  className="relative inline-block text-left font-semibold  w-24 xl:w-full text-center"> */}
-                <div
-                  className=" py-2.5 text-sm leading-5  rounded-lg text-base font-medium text-gray-100
-                                  focus: ring-offset-2 ring-offset-blue-400 ring-white ring-opacity-90 flex justify-center"
-                >
-                  {item.name}
-                </div>
-                {/* </a> */}
-              </Link>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-};
-
-const SwitchNetWork = () => {
-  const netWork = [
-    { id: 1, name: 'Mainnet', online: 'bg-green-400' },
-    { id: 2, name: 'Testnet', online: 'bg-yellow-400' },
-  ];
-  const [selected, setSelected] = useAtom(NetWorkState);
-
-  useEffect(() => {}, []);
+  const [rawSelected] = useAtom(NetWorkState);
+  const selected = rawSelected ?? netWorkDefaults[1];
 
   return (
-    <Listbox value={selected} onChange={setSelected}>
-       {({ open }) => (
-                <>
-                    <div className="py-1 relative">
-                        {/* <Listbox.Button className="relative w-full bg-neutral-800 mt-0.5 ml-2 rounded-full shadow-sm pl-3 pr-8 py-2 text-left cursor-default  sm:text-sm">
-                            <div className="flex items-center">
-                <span className={classNames(selected.online,'flex-shrink-0 inline-block h-2 w-2 rounded-full')}/>
-                 <span  id="sss" className="ml-3 block truncate text-gray-200 w-14 ">{selected.name}</span>
-                            </div>
-                            <span className="absolute inset-y-0 right-2 flex items-center text-gray-200 pr-2 pointer-events-none">
-                       <i className="fa fa-chevron-down" aria-hidden="true"></i>
-                     </span>
-                        </Listbox.Button> */}
-
-                       <Transition
-                            show={open}
-                            as={Fragment}
-                            leave="transition ease-in duration-100"
-                            leaveFrom="opacity-100"
-                            leaveTo="opacity-0"
+    <div>
+      <div className="xl:flex justify-center grid grid-cols-3 md:grid-cols-5">
+        {navigation.map(item => (
+          <Menu as="div" key={item.title} className="relative inline-block text-left font-semibold xl:mr-10">
+            <div>
+              <Menu.Button className="py-2.5 text-sm leading-5 w-24 xl:w-full text-center rounded-lg text-base font-medium text-gray-100 focus:ring-offset-2 ring-offset-blue-400 ring-white ring-opacity-90 flex justify-center">
+                {item.title}
+                <i className="fa fa-angle-down ml-2 mt-0.5" aria-hidden="true" />
+              </Menu.Button>
+            </div>
+            <Transition
+              as={Fragment}
+              enter="transition ease-out duration-100"
+              enterFrom="transform opacity-0 scale-95"
+              enterTo="transform opacity-100 scale-100"
+              leave="transition ease-in duration-75"
+              leaveFrom="transform opacity-100 scale-100"
+              leaveTo="transform opacity-0 scale-95"
+            >
+              <Menu.Items className="origin-top-right absolute mt-1 z-20 border-2 border-gray-800 rounded-md shadow-lg bg-black focus:outline-none">
+                <div className="py-1">
+                  {item.contents.map(contents => (
+                    <Menu.Item key={contents.name}>
+                      {({ active }) => (
+                        <Link
+                          href={contents.href}
+                          target={isExternal(contents.href) ? '_blank' : undefined}
+                          rel={isExternal(contents.href) ? 'noopener noreferrer' : undefined}
+                          className={classNames(
+                            active ? 'bg-gray-800 text-white' : 'text-gray-400',
+                            'block px-4 py-2 text-sm whitespace-nowrap'
+                          )}
                         >
-                            <Listbox.Options className="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
-                                {netWork.map((network) => (
-                                    <Listbox.Option
-                                        key={network.id}
-                                        className={({ active }) =>
-                                            classNames(
-                                                active ? 'text-white bg-indigo-600' : 'text-gray-900',
-                                                'cursor-default select-none relative py-2 pl-3 pr-9'
-                                            )
-                                        }
-                                        value={network}
-
-                                    >
-                                        {({ selected, active }) => (
-                                            <>
-                                                <div className="flex items-center">
-                          <span className={classNames(network.online, 'flex-shrink-0 inline-block h-2 w-2 rounded-full')} aria-hidden="true"/>
-                                                    <span className={classNames(selected ? 'font-semibold' : 'font-normal', 'ml-3 block truncate')}>
-                                                        {network.name}
-                                                        <span className="sr-only"> is {network.online ? 'online' : 'offline'}</span>
-                                                    </span>
-                                                </div>
-                                                {selected ? (
-                                                    <span
-                                                        className={classNames(active ? 'text-white' : 'text-indigo-600',
-                                                            'absolute inset-y-0 right-0 flex items-center pr-4')}>
-                            <CheckIcon className="h-5 w-5" aria-hidden="true" />
-                          </span>) : null}</>)}</Listbox.Option>
-                                ))}</Listbox.Options>
-                        </Transition>
-                    </div>
-                </>
-            )} 
-    </Listbox>
+                          {contents.name}
+                        </Link>
+                      )}
+                    </Menu.Item>
+                  ))}
+                </div>
+              </Menu.Items>
+            </Transition>
+          </Menu>
+        ))}
+        <div>
+          {TestNavigation.map(item => (
+            <Link key={item.name} href={item.href}>
+              <div className="py-2.5 text-sm leading-5 rounded-lg text-base font-medium text-gray-100 focus:ring-offset-2 ring-offset-blue-400 ring-white ring-opacity-90 flex justify-center">
+                {item.name}
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 };
 
 const Header = () => {
-  //get page route info
   const router = useRouter();
-  // button switch
   const [WalletButtonShow, SetWalletButtonShow] = useAtom(WalletButtonShowState);
-  // wallet EVM / Substrate List Switch
   const [, SetOpenWalletListState] = useAtom(WalletListShowState);
-  // Substrate address rechoose list
   const [, SetAccountConfig] = useAtom(AccountConfigPageState);
-  // which type of address evm = 1 substrate = 2
   const [AccountChoose] = useAtom(AccountChooseValue);
-  // address
   const [walletAddress, setWalletAddress] = useAtom(WalletAddress);
   const [intactWalletAddress] = useAtom(IntactWalletAddress);
+  const [isEmailAuthenticated] = useAtom(IsEmailAuthenticated);
 
   useEffect(() => {
-    if (router.isReady) {
-      if (AccountChoose === 0) {
-        SetWalletButtonShow(false);
-      } else {
-        SetWalletButtonShow(true);
-        setWalletAddress(address_slice(intactWalletAddress));
-      }
+    if (!router.isReady) return;
+    if (isEmailAuthenticated) {
+      SetWalletButtonShow(true);
+      setWalletAddress(intactWalletAddress); // intactWalletAddress holds the email
+    } else if (AccountChoose === 0) {
+      SetWalletButtonShow(false);
+    } else {
+      SetWalletButtonShow(true);
+      setWalletAddress(address_slice(intactWalletAddress));
     }
-  }, [router.isReady]);
+  }, [router.isReady, AccountChoose, intactWalletAddress, isEmailAuthenticated]);
 
-  // open rechoose account list
-  const accountConfig = () => {
-    SetAccountConfig(true);
-  };
-
-  const open_wallet_list = () => {
-    SetOpenWalletListState(true);
-  };
+  const accountConfig = () => SetAccountConfig(true);
+  const open_wallet_list = () => SetOpenWalletListState(true);
 
   return (
-    <div className=" ">
+    <div>
       <header>
         <Login />
         <Account />
-        <Popover className="relative   ">
+        <Popover className="relative">
           <div className="flex fixed z-20 inset-x-0 bg-black/80 backdrop-blur transition duration-700 mb-10 items-center justify-between p-3 px-5 md:px-10">
             {/* Left: Logo + Nav */}
             <div className="flex items-center">
               <Link href="/home">
                 <span className="sr-only">Workflow</span>
-                <img className="w-auto h-14" src="/web3logo.svg" alt="" />
+                <img className="w-auto h-14" src="/web3logo.svg" alt="Web3Games" />
               </Link>
               <div className="hidden xl:flex items-center mt-1.5 ml-4">
                 <Trident />
@@ -294,6 +203,7 @@ const Header = () => {
 
               {/* Desktop wallet */}
               <div className="hidden xl:flex items-center">
+                {/* Connect button — shown when not authenticated */}
                 <div className={WalletButtonShow ? 'hidden' : 'mt-1'}>
                   <div className="p-0.5 rounded-lg bg-gradient-to-r from-[#D95F82] via-[#8273D7] to-[#729CEA]">
                     <button
@@ -304,7 +214,9 @@ const Header = () => {
                     </button>
                   </div>
                 </div>
-                <div className={WalletButtonShow && AccountChoose == 1 ? '' : 'hidden'}>
+
+                {/* EVM / MetaMask badge */}
+                <div className={WalletButtonShow && AccountChoose === 1 ? '' : 'hidden'}>
                   <div className="flex bg-neutral-800 rounded-full p-1 justify-center">
                     <div className="flex items-center mr-4 p-2">
                       <img
@@ -316,13 +228,15 @@ const Header = () => {
                     </div>
                     <button
                       onClick={accountConfig}
-                      className="bg-neutral-700 rounded-full truncate w-40 px-4 py-2 text-white rounded-lg flex"
+                      className="bg-neutral-700 rounded-full truncate w-40 px-4 py-2 text-white flex"
                     >
                       {walletAddress}
                     </button>
                   </div>
                 </div>
-                <div className={WalletButtonShow && AccountChoose == 2 ? '' : 'hidden'}>
+
+                {/* Substrate badge */}
+                <div className={WalletButtonShow && AccountChoose === 2 ? '' : 'hidden'}>
                   <div className="flex bg-neutral-800 rounded-full p-1 justify-center">
                     <div className="flex items-center mr-4 p-2">
                       <img className="w-6 h-6 rounded-lg mx-1" src="/substrate.svg" alt="" />
@@ -330,17 +244,30 @@ const Header = () => {
                     </div>
                     <button
                       onClick={accountConfig}
-                      className="bg-neutral-700 rounded-full truncate w-40 px-4 py-2 text-white rounded-lg flex"
+                      className="bg-neutral-700 rounded-full truncate w-40 px-4 py-2 text-white flex"
                     >
                       {walletAddress}
                     </button>
                   </div>
                 </div>
-                <SwitchNetWork />
+
+                {/* Email auth badge */}
+                <div className={WalletButtonShow && isEmailAuthenticated && AccountChoose === 0 ? '' : 'hidden'}>
+                  <div className="flex bg-neutral-800 rounded-full p-1 justify-center">
+                    <div className="flex items-center mr-4 p-2">
+                      <i className="fa fa-user-circle text-white text-xl mx-1" aria-hidden="true" />
+                      <div className="text-white w-10">Email</div>
+                    </div>
+                    <div className="bg-neutral-700 rounded-full truncate w-40 px-4 py-2 text-white flex items-center">
+                      {walletAddress}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-          {/* mobile function list */}
+
+          {/* Mobile panel */}
           <div className="fixed z-20 inset-x-0">
             <Transition
               as={Fragment}
@@ -353,13 +280,13 @@ const Header = () => {
             >
               <Popover.Panel
                 focus
-                className="absolute my-auto  fixed z-20 inset-x-0  min-h-screen  inset-y-auto    transition transform origin-top-right xl:hidden"
+                className="absolute fixed z-20 inset-x-0 min-h-screen transition transform origin-top-right xl:hidden"
               >
-                <div className="rounded-lg  shadow-lg ring-1 ring-black ring-opacity-5 bg-black    transition duration-700 divide-y-2 divide-gray-400">
+                <div className="rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 bg-black transition duration-700 divide-y-2 divide-gray-400">
                   <div className="pt-5 pb-6 px-5">
                     <div className="flex items-center justify-between">
                       <div>
-                        <img className="h-10 w-auto" src="/logo.png" alt="Workflow" />
+                        <img className="h-10 w-auto" src="/logo.png" alt="Web3Games" />
                       </div>
                       <div className="mr-2">
                         <Popover.Button className="bg-gray-100 rounded-md p-2 inline-flex items-center justify-center text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500">
@@ -373,11 +300,15 @@ const Header = () => {
                     <Trident />
                   </div>
                   <div className="flex justify-center p-5 items-center">
-                    <div className=" w-full   ">
-                      <div className="flex justify-center ">
-                        <button className="bg-gray-800 w-36 p-2 text-center text-white rounded-lg   ">
+                    <div className="w-full">
+                      <div className="flex justify-center">
+                        <Popover.Button
+                          as="button"
+                          onClick={open_wallet_list}
+                          className="bg-gray-800 w-36 p-2 text-center text-white rounded-lg"
+                        >
                           Connect Wallet
-                        </button>
+                        </Popover.Button>
                       </div>
                     </div>
                   </div>
@@ -387,9 +318,6 @@ const Header = () => {
           </div>
         </Popover>
       </header>
-      {/*<SelectTokenTail/>*/}
-      {/*<SelectTokenTop/>*/}
-      {/*<TokenList/>*/}
     </div>
   );
 };
