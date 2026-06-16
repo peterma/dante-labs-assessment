@@ -15,6 +15,7 @@
   "dependencies": {
     "@headlessui/react": "^1.4.1",
     "@heroicons/react": "^1.0.4",
+    "@hookform/resolvers": "^3.3.4",
     "@polkadot/extension-dapp": "^0.42.2",
     "@polkadot/keyring": "^7.3.2",
     "@polkadot/types": "^7.3.2",
@@ -46,6 +47,7 @@
     "react": "^18.2.0",
     "react-bootstrap": "^2.4.0",
     "react-dom": "^18.2.0",
+    "react-hook-form": "^7.51.0",
     "react-icons": "^4.3.1",
     "react-router-dom": "^6.3.0",
     "react-scripts": "^0.0.0",
@@ -55,7 +57,8 @@
     "room-populate": "^1.0.13",
     "sass": "^1.51.0",
     "uuid": "^8.3.2",
-    "validator": "^13.12.0"
+    "validator": "^13.12.0",
+    "yup": "^1.4.0"
   },
   "devDependencies": {
     "@tailwindcss/line-clamp": "^0.4.2",
