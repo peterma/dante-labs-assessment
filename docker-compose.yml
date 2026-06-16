@@ -2,25 +2,25 @@ services:
   mongo:
     image: mongo:8
     restart: unless-stopped
+    command: ["--auth"]   # enforce auth even if INITDB bootstrap is skipped
     ports:
       - "127.0.0.1:27017:27017"   # loopback only — not reachable off-host
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      # :? form causes `docker compose up` to abort if either var is unset or empty
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:?MONGO_ROOT_USER must be set in .env}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?MONGO_ROOT_PASSWORD must be set in .env}
     volumes:
       - mongo_data:/data/db
     healthcheck:
+      # CMD-SHELL with a URI keeps credentials in one shell-expanded string rather
+      # than as discrete --password argv slots (which some logging stacks capture separately).
+      # $$VAR → $VAR in the container shell (Compose escaping), which the shell then expands.
       test:
-        - CMD
-        - mongosh
-        - --username
-        - ${MONGO_ROOT_USER}
-        - --password
-        - ${MONGO_ROOT_PASSWORD}
-        - --authenticationDatabase
-        - admin
-        - --eval
-        - "db.adminCommand('ping')"
+        - CMD-SHELL
+        - >-
+          mongosh --quiet
+          --eval 'db.adminCommand("ping")'
+          "mongodb://$$MONGO_INITDB_ROOT_USERNAME:$$MONGO_INITDB_ROOT_PASSWORD@localhost:27017/admin"
       interval: 10s
       timeout: 5s
       retries: 5
