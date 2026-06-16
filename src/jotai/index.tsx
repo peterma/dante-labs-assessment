@@ -230,7 +230,8 @@ const token_list_and_balance = atomWithStorage('token_list_and_balance',TokenLis
 
 const Request_Data = atom(false)
 
-
+// Tracks whether the user authenticated via email/password (distinct from wallet types)
+const IsEmailAuthenticated = atomWithStorage('IsEmailAuthenticated', false)
 
 export {AllTokenPoolPair,W3G_info,Request_Data,TokenListAndBalance,AwaitPopUpBoxState,PopUpBoxInfo,PopUpBoxState,Select_TokenTop,Select_TokenTail,Token_Lists,SwapTokenTop,SwapTokenTail,AssetsOpenPopup,WalletListShowState,AccountChooseValue,WalletButtonShowState,WalletAddress,AccountConfigPageState,HiddenClaim,
-   AfterSubstrateAddressList,IntactWalletAddress,NetWorkState,token_list_and_balance,custom_token_list,TOKENWATCHPOOLPAIR,token_pool_pair}
+   AfterSubstrateAddressList,IntactWalletAddress,NetWorkState,token_list_and_balance,custom_token_list,TOKENWATCHPOOLPAIR,token_pool_pair,IsEmailAuthenticated}
