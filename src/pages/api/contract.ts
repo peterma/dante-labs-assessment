@@ -146,6 +146,19 @@ function formatAmount(raw: bigint, decimals: number): string {
 
 // ── Handler ──────────────────────────────────────────────────────────────────
 
+function getClientIp(req: NextApiRequest): string {
+  const trustedProxies = parseInt(process.env.TRUSTED_PROXY_COUNT ?? '0', 10);
+  if (trustedProxies > 0) {
+    const xff = req.headers['x-forwarded-for'] as string | undefined;
+    if (xff) {
+      const entries = xff.split(',').map(s => s.trim());
+      const ip = entries.at(-trustedProxies);
+      if (ip) return ip;
+    }
+  }
+  return req.socket.remoteAddress ?? 'unknown';
+}
+
 export type ContractData = {
   contract: string;
   network: string;
@@ -165,8 +178,12 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Rate limiting — use the real TCP peer, not the spoofable X-Forwarded-For header.
-  const rawIp = req.socket.remoteAddress ?? 'unknown';
+  // Rate limiting.
+  // Without a trusted proxy, use the TCP peer (non-spoofable).
+  // With TRUSTED_PROXY_COUNT=N (e.g. 1 for Vercel/nginx): each trusted proxy appends exactly
+  // one entry to X-Forwarded-For, so the real client is N hops from the right.
+  // Never trust XFF blindly — TRUSTED_PROXY_COUNT defaults to 0 (direct connection).
+  const rawIp = getClientIp(req);
   if (!checkRateLimit(rawIp)) {
     res.setHeader('Retry-After', '60');
     return res.status(429).json({ error: 'Too many requests. Try again in a minute.' });
