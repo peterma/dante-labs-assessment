@@ -11,6 +11,7 @@ import {
 } from '../../jotai/index';
 import {ExclamationIcon} from "@heroicons/react/solid";
 import { address_slice } from '../../utils/chain/address';
+import AuthModal from '../auth/AuthModal';
 
 
 const Login=()=>{
@@ -32,6 +33,8 @@ const Login=()=>{
   const [InstallSubstrate,setInstallSubstrate] = useState(false)
   // metamask wallet instal check
   const [InstallMeatMask,setInstallMeatMask] = useState(false)
+  // email/password auth modal
+  const [openAuthModal, setOpenAuthModal] = useState(false)
   // login metamask
   async function  loginMeatMask () {
     // @ts-ignore
@@ -186,7 +189,26 @@ const Login=()=>{
                         <img className="w-8 h-8 rounded-lg" src="https://cdn.discordapp.com/attachments/876498266550853642/908665467273613392/unknown.png" alt=""/>
                       </div>
                     </button>
-                    <div className="text-sm text-gray-500 lg:w-96 ">
+
+                    {/* Divider */}
+                    <div className="flex items-center gap-3 my-4">
+                      <div className="flex-1 h-px bg-neutral-700" />
+                      <span className="text-xs text-gray-500">or</span>
+                      <div className="flex-1 h-px bg-neutral-700" />
+                    </div>
+
+                    {/* Email / Password login */}
+                    <button
+                      onClick={() => { SetOpenWalletListState(false); setOpenAuthModal(true); }}
+                      className="bg-neutral-800 border border-neutral-600 hover:border-neutral-400 flex justify-between text-white p-4 rounded-lg w-full transition-colors"
+                    >
+                      <div className="text-lg font-semibold">Email &amp; Password</div>
+                      <div className="flex items-center">
+                        <i className="fa fa-envelope text-gray-300 text-xl" aria-hidden="true" />
+                      </div>
+                    </button>
+
+                    <div className="text-sm text-gray-500 lg:w-96 mt-8">
                       We do not own your private keys and cannot access your funds without your confirmation.
                     </div>
                   </div>
@@ -396,6 +418,13 @@ const Login=()=>{
             </div>
           </Dialog>
         </Transition.Root>
+        <AuthModal
+          isOpen={openAuthModal}
+          onClose={() => setOpenAuthModal(false)}
+          onSuccess={(_user) => {
+            SetWalletButtonShow(true);
+          }}
+        />
       </>
 
   )
