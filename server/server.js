@@ -1,8 +1,18 @@
+// Load env before requiring app so all modules see the vars.
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config({ path: 'server/config/config.env' });
+}
+
+const validateEnv = require('./config/validateEnv');
+validateEnv();
+
 const app = require('./app');
 const connectDatabase = require('./config/database');
 const cloudinary = require('cloudinary');
 const PORT = process.env.PORT || 4000;
 
+// Declare server before shutdown so the closure captures the variable.
+let server;
 let isShuttingDown = false;
 
 function shutdown(code) {
@@ -10,6 +20,7 @@ function shutdown(code) {
   isShuttingDown = true;
   if (server) {
     server.close(() => process.exit(code));
+    // Force-exit after 5s in case connections are held open.
     setTimeout(() => process.exit(code), 5000).unref();
   } else {
     process.exit(code);
@@ -21,7 +32,7 @@ process.on('uncaughtException', err => {
   shutdown(1);
 });
 
-// connectDatabase();
+connectDatabase();
 
 const cloudinaryConfigured =
   process.env.CLOUDINARY_NAME &&
@@ -36,7 +47,7 @@ if (cloudinaryConfigured) {
   });
 }
 
-const server = app.listen(PORT, () => {
+server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
