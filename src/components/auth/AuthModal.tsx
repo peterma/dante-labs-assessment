@@ -1,5 +1,8 @@
-import React, { Fragment, useState } from 'react';
+import React, { Fragment, useEffect, useRef, useState } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
+import { useForm } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import * as yup from 'yup';
 import axios from 'axios';
 
 interface AuthModalProps {
@@ -10,20 +13,37 @@ interface AuthModalProps {
 
 type Mode = 'login' | 'signup';
 
-interface FormState {
+interface LoginInputs {
+  email: string;
+  password: string;
+  rememberMe: boolean;
+}
+
+interface SignupInputs {
   name: string;
   email: string;
   password: string;
   confirmPassword: string;
-  rememberMe: boolean;
 }
 
-interface FormErrors {
-  name?: string;
-  email?: string;
-  password?: string;
-  confirmPassword?: string;
-}
+const loginSchema = yup.object({
+  email: yup.string().required('Email is required').email('Invalid email address'),
+  password: yup.string().required('Password is required'),
+  rememberMe: yup.boolean().default(false),
+});
+
+const signupSchema = yup.object({
+  name: yup.string().required('Name is required').trim(),
+  email: yup.string().required('Email is required').email('Invalid email address'),
+  password: yup
+    .string()
+    .required('Password is required')
+    .min(8, 'At least 8 characters required'),
+  confirmPassword: yup
+    .string()
+    .required('Please confirm your password')
+    .oneOf([yup.ref('password')], 'Passwords do not match'),
+});
 
 function getPasswordStrength(password: string) {
   if (!password) return { score: 0, label: '', color: '' };
@@ -43,19 +63,10 @@ function getPasswordStrength(password: string) {
   return { score, ...levels[Math.min(score, 4)] };
 }
 
-function isValidEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
-const INITIAL_FORM: FormState = {
-  name: '',
-  email: '',
-  password: '',
-  confirmPassword: '',
-  rememberMe: false,
-};
+// Never falls back to http:// in production.
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (process.env.NODE_ENV !== 'production' ? 'http://localhost:4000' : '');
 
 export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
   const [mode, setMode] = useState<Mode>('login');
@@ -64,88 +75,42 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
   const [apiSuccess, setApiSuccess] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [form, setForm] = useState<FormState>(INITIAL_FORM);
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const strength = getPasswordStrength(form.password);
+  const loginForm = useForm<LoginInputs>({
+    resolver: yupResolver(loginSchema),
+    mode: 'onBlur',
+    defaultValues: { email: '', password: '', rememberMe: false },
+  });
 
-  const handleChange = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = field === 'rememberMe' ? e.target.checked : e.target.value;
-    setForm(prev => ({ ...prev, [field]: value }));
-    setErrors(prev => ({ ...prev, [field]: undefined }));
-    setApiError('');
-  };
+  const signupForm = useForm<SignupInputs>({
+    resolver: yupResolver(signupSchema),
+    mode: 'onBlur',
+    defaultValues: { name: '', email: '', password: '', confirmPassword: '' },
+  });
 
-  const handleBlur = (field: string) => () => {
-    setTouched(prev => ({ ...prev, [field]: true }));
-    validateFields({ [field]: true });
-  };
+  const activeForm = mode === 'login' ? loginForm : signupForm;
+  const passwordValue =
+    mode === 'login'
+      ? loginForm.watch('password')
+      : signupForm.watch('password');
+  const strength = getPasswordStrength(passwordValue || '');
 
-  const validateFields = (touchOverride?: Record<string, boolean>): FormErrors => {
-    const e: FormErrors = {};
-    if (mode === 'signup' && !form.name.trim()) e.name = 'Name is required';
-    if (!form.email) e.email = 'Email is required';
-    else if (!isValidEmail(form.email)) e.email = 'Invalid email address';
-    if (!form.password) e.password = 'Password is required';
-    else if (mode === 'signup' && form.password.length < 8) e.password = 'At least 8 characters required';
-    if (mode === 'signup') {
-      if (!form.confirmPassword) e.confirmPassword = 'Please confirm your password';
-      else if (form.confirmPassword !== form.password) e.confirmPassword = 'Passwords do not match';
-    }
-    setErrors(e);
-    return e;
-  };
-
-  const handleSubmit = async (ev: React.FormEvent) => {
-    ev.preventDefault();
-    setTouched({ name: true, email: true, password: true, confirmPassword: true });
-    const e = validateFields();
-    if (Object.keys(e).length > 0) return;
-
-    setLoading(true);
-    setApiError('');
-    setApiSuccess('');
-
-    try {
-      if (mode === 'login') {
-        const { data } = await axios.post(`${API_BASE}/api/user/login`, {
-          email: form.email,
-          password: form.password,
-        });
-        if (form.rememberMe) {
-          localStorage.setItem('auth_token', data.token);
-          localStorage.setItem('auth_user', JSON.stringify(data.user));
-        } else {
-          sessionStorage.setItem('auth_token', data.token);
-        }
-        setApiSuccess('Login successful! Welcome back.');
-        setTimeout(() => { onSuccess?.(data.user); handleClose(); }, 1200);
-      } else {
-        const { data } = await axios.post(`${API_BASE}/api/user/register`, {
-          name: form.name,
-          email: form.email,
-          password: form.password,
-          gender: 'other',
-          avatar: 'https://www.gravatar.com/avatar/?d=mp&s=150',
-        });
-        setApiSuccess('Account created! You are now logged in.');
-        setTimeout(() => { onSuccess?.(data.user); handleClose(); }, 1200);
-      }
-    } catch (err: any) {
-      setApiError(
-        err.response?.data?.message ||
-        `${mode === 'login' ? 'Login' : 'Registration'} failed. Please try again.`
-      );
-    } finally {
-      setLoading(false);
+  const clearSuccessTimer = () => {
+    if (successTimerRef.current !== null) {
+      clearTimeout(successTimerRef.current);
+      successTimerRef.current = null;
     }
   };
+
+  useEffect(() => {
+    return clearSuccessTimer;
+  }, []);
 
   const handleClose = () => {
-    setForm(INITIAL_FORM);
-    setErrors({});
-    setTouched({});
+    clearSuccessTimer();
+    loginForm.reset();
+    signupForm.reset();
     setApiError('');
     setApiSuccess('');
     setShowPassword(false);
@@ -154,19 +119,75 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
   };
 
   const switchMode = (next: Mode) => {
+    clearSuccessTimer();
     setMode(next);
-    setErrors({});
-    setTouched({});
     setApiError('');
     setApiSuccess('');
   };
 
-  const fieldClass = (field: keyof FormErrors) =>
+  const onLoginSubmit = async (data: LoginInputs) => {
+    setLoading(true);
+    setApiError('');
+    setApiSuccess('');
+    try {
+      const { data: res } = await axios.post(
+        `${API_BASE}/api/user/login`,
+        { email: data.email, password: data.password },
+        { withCredentials: true, timeout: 10000 }
+      );
+      setApiSuccess('Login successful! Welcome back.');
+      successTimerRef.current = setTimeout(() => {
+        onSuccess?.(res.user);
+        handleClose();
+      }, 1500);
+    } catch (err: any) {
+      setApiError(
+        err.response?.data?.message || 'Login failed. Please try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onSignupSubmit = async (data: SignupInputs) => {
+    setLoading(true);
+    setApiError('');
+    setApiSuccess('');
+    try {
+      const { data: res } = await axios.post(
+        `${API_BASE}/api/user/register`,
+        {
+          name: data.name,
+          email: data.email,
+          password: data.password,
+          gender: 'other',
+          avatar: 'https://www.gravatar.com/avatar/?d=mp&s=150',
+        },
+        { withCredentials: true, timeout: 10000 }
+      );
+      setApiSuccess('Account created! You are now logged in.');
+      successTimerRef.current = setTimeout(() => {
+        onSuccess?.(res.user);
+        handleClose();
+      }, 1500);
+    } catch (err: any) {
+      setApiError(
+        err.response?.data?.message || 'Registration failed. Please try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const inputClass = (hasError: boolean) =>
     `w-full px-4 py-3 rounded-lg bg-[#1E1E1E] border text-white placeholder-gray-500 focus:outline-none focus:ring-2 transition-colors text-sm ${
-      errors[field] && touched[field]
+      hasError
         ? 'border-red-500 focus:ring-red-500'
         : 'border-[#333333] focus:border-[#876BD2] focus:ring-[#876BD2]'
     }`;
+
+  const loginErrors = loginForm.formState.errors;
+  const signupErrors = signupForm.formState.errors;
 
   return (
     <Transition.Root show={isOpen} as={Fragment}>
@@ -234,187 +255,88 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
 
                 {/* API feedback */}
                 {apiError && (
-                  <div
-                    role="alert"
-                    className="mb-4 p-3 rounded-lg bg-red-900/30 border border-red-700/60 text-red-300 text-sm flex items-center gap-2"
-                  >
+                  <div role="alert" className="mb-4 p-3 rounded-lg bg-red-900/30 border border-red-700/60 text-red-300 text-sm flex items-center gap-2">
                     <i className="fa fa-exclamation-circle flex-shrink-0" aria-hidden="true" />
                     {apiError}
                   </div>
                 )}
                 {apiSuccess && (
-                  <div
-                    role="status"
-                    className="mb-4 p-3 rounded-lg bg-green-900/30 border border-green-700/60 text-green-300 text-sm flex items-center gap-2"
-                  >
+                  <div role="status" className="mb-4 p-3 rounded-lg bg-green-900/30 border border-green-700/60 text-green-300 text-sm flex items-center gap-2">
                     <i className="fa fa-check-circle flex-shrink-0" aria-hidden="true" />
                     {apiSuccess}
                   </div>
                 )}
 
-                {/* Form */}
-                <form onSubmit={handleSubmit} noValidate aria-label={mode === 'login' ? 'Sign in form' : 'Create account form'}>
-                  {/* Name — signup only */}
-                  {mode === 'signup' && (
+                {/* LOGIN FORM */}
+                {mode === 'login' && (
+                  <form
+                    onSubmit={loginForm.handleSubmit(onLoginSubmit)}
+                    noValidate
+                    aria-label="Sign in form"
+                  >
                     <div className="mb-4">
-                      <label htmlFor="auth-name" className="block text-sm font-medium text-gray-300 mb-1.5">
-                        Full Name
+                      <label htmlFor="auth-email" className="block text-sm font-medium text-gray-300 mb-1.5">
+                        Email Address
                       </label>
                       <input
-                        id="auth-name"
-                        type="text"
-                        autoComplete="name"
-                        value={form.name}
-                        onChange={handleChange('name')}
-                        onBlur={handleBlur('name')}
+                        id="auth-email"
+                        type="email"
+                        autoComplete="email"
+                        placeholder="you@example.com"
                         aria-required="true"
-                        aria-invalid={!!(errors.name && touched.name)}
-                        aria-describedby={errors.name && touched.name ? 'name-error' : undefined}
-                        placeholder="John Doe"
-                        className={fieldClass('name')}
+                        aria-invalid={!!loginErrors.email}
+                        aria-describedby={loginErrors.email ? 'email-error' : undefined}
+                        className={inputClass(!!loginErrors.email)}
+                        {...loginForm.register('email')}
                       />
-                      {errors.name && touched.name && (
-                        <p id="name-error" role="alert" className="mt-1 text-xs text-red-400 flex items-center gap-1">
+                      {loginErrors.email && (
+                        <p id="email-error" role="alert" className="mt-1 text-xs text-red-400 flex items-center gap-1">
                           <i className="fa fa-exclamation-circle" aria-hidden="true" />
-                          {errors.name}
+                          {loginErrors.email.message}
                         </p>
                       )}
                     </div>
-                  )}
 
-                  {/* Email */}
-                  <div className="mb-4">
-                    <label htmlFor="auth-email" className="block text-sm font-medium text-gray-300 mb-1.5">
-                      Email Address
-                    </label>
-                    <input
-                      id="auth-email"
-                      type="email"
-                      autoComplete="email"
-                      value={form.email}
-                      onChange={handleChange('email')}
-                      onBlur={handleBlur('email')}
-                      aria-required="true"
-                      aria-invalid={!!(errors.email && touched.email)}
-                      aria-describedby={errors.email && touched.email ? 'email-error' : undefined}
-                      placeholder="you@example.com"
-                      className={fieldClass('email')}
-                    />
-                    {errors.email && touched.email && (
-                      <p id="email-error" role="alert" className="mt-1 text-xs text-red-400 flex items-center gap-1">
-                        <i className="fa fa-exclamation-circle" aria-hidden="true" />
-                        {errors.email}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Password */}
-                  <div className="mb-4">
-                    <label htmlFor="auth-password" className="block text-sm font-medium text-gray-300 mb-1.5">
-                      Password
-                    </label>
-                    <div className="relative">
-                      <input
-                        id="auth-password"
-                        type={showPassword ? 'text' : 'password'}
-                        autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                        value={form.password}
-                        onChange={handleChange('password')}
-                        onBlur={handleBlur('password')}
-                        aria-required="true"
-                        aria-invalid={!!(errors.password && touched.password)}
-                        aria-describedby={[
-                          errors.password && touched.password ? 'password-error' : '',
-                          mode === 'signup' && form.password ? 'password-strength' : '',
-                        ]
-                          .filter(Boolean)
-                          .join(' ') || undefined}
-                        placeholder={mode === 'signup' ? 'At least 8 characters' : '••••••••'}
-                        className={`${fieldClass('password')} pr-11`}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(v => !v)}
-                        className="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-200 transition-colors"
-                        aria-label={showPassword ? 'Hide password' : 'Show password'}
-                      >
-                        <i className={`fa ${showPassword ? 'fa-eye-slash' : 'fa-eye'} text-sm`} aria-hidden="true" />
-                      </button>
-                    </div>
-                    {errors.password && touched.password && (
-                      <p id="password-error" role="alert" className="mt-1 text-xs text-red-400 flex items-center gap-1">
-                        <i className="fa fa-exclamation-circle" aria-hidden="true" />
-                        {errors.password}
-                      </p>
-                    )}
-                    {/* Strength meter — signup only */}
-                    {mode === 'signup' && form.password && (
-                      <div id="password-strength" className="mt-2" aria-live="polite">
-                        <div className="flex gap-1 mb-1" aria-hidden="true">
-                          {[0, 1, 2, 3, 4].map(i => (
-                            <div
-                              key={i}
-                              className={`h-1 flex-1 rounded-full transition-colors duration-300 ${
-                                i < strength.score ? strength.color : 'bg-[#2a2a2a]'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                        <p className="text-xs text-gray-400">
-                          Strength: <span className="text-gray-200">{strength.label}</span>
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Confirm password — signup only */}
-                  {mode === 'signup' && (
                     <div className="mb-4">
-                      <label htmlFor="auth-confirm" className="block text-sm font-medium text-gray-300 mb-1.5">
-                        Confirm Password
+                      <label htmlFor="auth-password" className="block text-sm font-medium text-gray-300 mb-1.5">
+                        Password
                       </label>
                       <div className="relative">
                         <input
-                          id="auth-confirm"
-                          type={showConfirm ? 'text' : 'password'}
-                          autoComplete="new-password"
-                          value={form.confirmPassword}
-                          onChange={handleChange('confirmPassword')}
-                          onBlur={handleBlur('confirmPassword')}
+                          id="auth-password"
+                          type={showPassword ? 'text' : 'password'}
+                          autoComplete="current-password"
+                          placeholder="••••••••"
                           aria-required="true"
-                          aria-invalid={!!(errors.confirmPassword && touched.confirmPassword)}
-                          aria-describedby={errors.confirmPassword && touched.confirmPassword ? 'confirm-error' : undefined}
-                          placeholder="Re-enter your password"
-                          className={`${fieldClass('confirmPassword')} pr-11`}
+                          aria-invalid={!!loginErrors.password}
+                          aria-describedby={loginErrors.password ? 'password-error' : undefined}
+                          className={`${inputClass(!!loginErrors.password)} pr-11`}
+                          {...loginForm.register('password')}
                         />
                         <button
                           type="button"
-                          onClick={() => setShowConfirm(v => !v)}
+                          onClick={() => setShowPassword(v => !v)}
                           className="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-200 transition-colors"
-                          aria-label={showConfirm ? 'Hide confirm password' : 'Show confirm password'}
+                          aria-label={showPassword ? 'Hide password' : 'Show password'}
                         >
-                          <i className={`fa ${showConfirm ? 'fa-eye-slash' : 'fa-eye'} text-sm`} aria-hidden="true" />
+                          <i className={`fa ${showPassword ? 'fa-eye-slash' : 'fa-eye'} text-sm`} aria-hidden="true" />
                         </button>
                       </div>
-                      {errors.confirmPassword && touched.confirmPassword && (
-                        <p id="confirm-error" role="alert" className="mt-1 text-xs text-red-400 flex items-center gap-1">
+                      {loginErrors.password && (
+                        <p id="password-error" role="alert" className="mt-1 text-xs text-red-400 flex items-center gap-1">
                           <i className="fa fa-exclamation-circle" aria-hidden="true" />
-                          {errors.confirmPassword}
+                          {loginErrors.password.message}
                         </p>
                       )}
                     </div>
-                  )}
 
-                  {/* Remember me — login only */}
-                  {mode === 'login' && (
                     <div className="flex items-center justify-between mb-5 mt-1">
                       <label className="flex items-center gap-2 cursor-pointer select-none">
                         <input
                           type="checkbox"
                           id="remember-me"
-                          checked={form.rememberMe}
-                          onChange={handleChange('rememberMe')}
                           className="w-4 h-4 rounded border-gray-600 bg-[#1E1E1E] cursor-pointer accent-[#7BE0D6]"
+                          {...loginForm.register('rememberMe')}
                         />
                         <span className="text-sm text-gray-300">Remember me</span>
                       </label>
@@ -426,40 +348,179 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                         Forgot password?
                       </button>
                     </div>
-                  )}
 
-                  {/* Submit */}
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    aria-busy={loading}
-                    className="w-full py-3 rounded-lg bg-gradient-to-r from-[#DB5E7F] via-[#876BD2] to-[#6E93E8] text-white font-semibold text-sm hover:opacity-90 active:opacity-80 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2 mt-2"
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      aria-busy={loading}
+                      className="w-full py-3 rounded-lg bg-gradient-to-r from-[#DB5E7F] via-[#876BD2] to-[#6E93E8] text-white font-semibold text-sm hover:opacity-90 active:opacity-80 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2 mt-2"
+                    >
+                      {loading && (
+                        <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      )}
+                      {loading ? 'Signing in…' : 'Sign In'}
+                    </button>
+                  </form>
+                )}
+
+                {/* SIGNUP FORM */}
+                {mode === 'signup' && (
+                  <form
+                    onSubmit={signupForm.handleSubmit(onSignupSubmit)}
+                    noValidate
+                    aria-label="Create account form"
                   >
-                    {loading && (
-                      <svg
-                        className="animate-spin h-4 w-4 text-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        aria-hidden="true"
-                      >
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    <div className="mb-4">
+                      <label htmlFor="auth-name" className="block text-sm font-medium text-gray-300 mb-1.5">
+                        Full Name
+                      </label>
+                      <input
+                        id="auth-name"
+                        type="text"
+                        autoComplete="name"
+                        placeholder="John Doe"
+                        aria-required="true"
+                        aria-invalid={!!signupErrors.name}
+                        aria-describedby={signupErrors.name ? 'name-error' : undefined}
+                        className={inputClass(!!signupErrors.name)}
+                        {...signupForm.register('name')}
+                      />
+                      {signupErrors.name && (
+                        <p id="name-error" role="alert" className="mt-1 text-xs text-red-400 flex items-center gap-1">
+                          <i className="fa fa-exclamation-circle" aria-hidden="true" />
+                          {signupErrors.name.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="mb-4">
+                      <label htmlFor="auth-email-signup" className="block text-sm font-medium text-gray-300 mb-1.5">
+                        Email Address
+                      </label>
+                      <input
+                        id="auth-email-signup"
+                        type="email"
+                        autoComplete="email"
+                        placeholder="you@example.com"
+                        aria-required="true"
+                        aria-invalid={!!signupErrors.email}
+                        aria-describedby={signupErrors.email ? 'email-signup-error' : undefined}
+                        className={inputClass(!!signupErrors.email)}
+                        {...signupForm.register('email')}
+                      />
+                      {signupErrors.email && (
+                        <p id="email-signup-error" role="alert" className="mt-1 text-xs text-red-400 flex items-center gap-1">
+                          <i className="fa fa-exclamation-circle" aria-hidden="true" />
+                          {signupErrors.email.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="mb-4">
+                      <label htmlFor="auth-password-signup" className="block text-sm font-medium text-gray-300 mb-1.5">
+                        Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="auth-password-signup"
+                          type={showPassword ? 'text' : 'password'}
+                          autoComplete="new-password"
+                          placeholder="At least 8 characters"
+                          aria-required="true"
+                          aria-invalid={!!signupErrors.password}
+                          aria-describedby={[
+                            signupErrors.password ? 'password-signup-error' : '',
+                            passwordValue ? 'password-strength' : '',
+                          ].filter(Boolean).join(' ') || undefined}
+                          className={`${inputClass(!!signupErrors.password)} pr-11`}
+                          {...signupForm.register('password')}
                         />
-                      </svg>
-                    )}
-                    {loading
-                      ? mode === 'login'
-                        ? 'Signing in…'
-                        : 'Creating account…'
-                      : mode === 'login'
-                      ? 'Sign In'
-                      : 'Create Account'}
-                  </button>
-                </form>
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(v => !v)}
+                          className="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-200 transition-colors"
+                          aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        >
+                          <i className={`fa ${showPassword ? 'fa-eye-slash' : 'fa-eye'} text-sm`} aria-hidden="true" />
+                        </button>
+                      </div>
+                      {signupErrors.password && (
+                        <p id="password-signup-error" role="alert" className="mt-1 text-xs text-red-400 flex items-center gap-1">
+                          <i className="fa fa-exclamation-circle" aria-hidden="true" />
+                          {signupErrors.password.message}
+                        </p>
+                      )}
+                      {passwordValue && (
+                        <div id="password-strength" className="mt-2" aria-live="polite">
+                          <div className="flex gap-1 mb-1" aria-hidden="true">
+                            {[0, 1, 2, 3, 4].map(i => (
+                              <div
+                                key={i}
+                                className={`h-1 flex-1 rounded-full transition-colors duration-300 ${
+                                  i < strength.score ? strength.color : 'bg-[#2a2a2a]'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          <p className="text-xs text-gray-400">
+                            Strength: <span className="text-gray-200">{strength.label}</span>
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mb-4">
+                      <label htmlFor="auth-confirm" className="block text-sm font-medium text-gray-300 mb-1.5">
+                        Confirm Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="auth-confirm"
+                          type={showConfirm ? 'text' : 'password'}
+                          autoComplete="new-password"
+                          placeholder="Re-enter your password"
+                          aria-required="true"
+                          aria-invalid={!!signupErrors.confirmPassword}
+                          aria-describedby={signupErrors.confirmPassword ? 'confirm-error' : undefined}
+                          className={`${inputClass(!!signupErrors.confirmPassword)} pr-11`}
+                          {...signupForm.register('confirmPassword')}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirm(v => !v)}
+                          className="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-200 transition-colors"
+                          aria-label={showConfirm ? 'Hide confirm password' : 'Show confirm password'}
+                        >
+                          <i className={`fa ${showConfirm ? 'fa-eye-slash' : 'fa-eye'} text-sm`} aria-hidden="true" />
+                        </button>
+                      </div>
+                      {signupErrors.confirmPassword && (
+                        <p id="confirm-error" role="alert" className="mt-1 text-xs text-red-400 flex items-center gap-1">
+                          <i className="fa fa-exclamation-circle" aria-hidden="true" />
+                          {signupErrors.confirmPassword.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      aria-busy={loading}
+                      className="w-full py-3 rounded-lg bg-gradient-to-r from-[#DB5E7F] via-[#876BD2] to-[#6E93E8] text-white font-semibold text-sm hover:opacity-90 active:opacity-80 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2 mt-2"
+                    >
+                      {loading && (
+                        <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      )}
+                      {loading ? 'Creating account…' : 'Create Account'}
+                    </button>
+                  </form>
+                )}
 
                 {/* Divider */}
                 <div className="flex items-center gap-3 my-5">
